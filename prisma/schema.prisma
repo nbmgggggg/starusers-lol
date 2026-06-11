@@ -16,12 +16,15 @@ model User {
   avatar        String?
   banner        String?
   bio           String?
+  status        String?  // online, idle, dnd, offline
 
   starBoost     Boolean  @default(false)
 
   createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   messages      Message[]
+  directMessages DirectMessage[]
   memberships   ServerMember[]
   ownedServers  Server[]
   friendsWith   User[] @relation("Friends")
@@ -67,6 +70,7 @@ model Channel {
 model Message {
   id            String @id @default(cuid())
   content       String
+  edited        Boolean @default(false)
 
   authorId      String
   author        User @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -79,6 +83,24 @@ model Message {
 
   @@index([authorId])
   @@index([channelId])
+}
+
+model DirectMessage {
+  id            String @id @default(cuid())
+  content       String
+  edited        Boolean @default(false)
+  isRead        Boolean @default(false)
+
+  senderId      String
+  sender        User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  recipientId   String
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([senderId])
+  @@index([recipientId])
 }
 
 model ServerMember {

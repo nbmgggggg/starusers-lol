@@ -27,8 +27,68 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Return empty conversations for now
-    const conversations = [];
+    // Get unique conversations
+    const sentMessages = await prisma.directMessage.findMany({
+      where: { senderId: user.id },
+      distinct: ["recipientId"],
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        sender: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
+    const receivedMessages = await prisma.directMessage.findMany({
+      where: { recipientId: user.id },
+      distinct: ["senderId"],
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        sender: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
+    // Merge and deduplicate
+    const conversationMap = new Map();
+
+    [...sentMessages, ...receivedMessages].forEach((msg) => {
+      const otherUserId = msg.senderId === user.id ? msg.recipientId : msg.senderId;
+      if (!conversationMap.has(otherUserId)) {
+        conversationMap.set(otherUserId, {
+          userId: msg.sender.id === user.id ? msg.recipientId : msg.sender.id,
+          username: msg.sender.username,
+          avatar: msg.sender.avatar,
+          lastMessage: msg.content,
+          lastMessageTime: msg.createdAt,
+        });
+      }
+    });
+
+    // Get unread counts
+    const conversations = await Promise.all(
+      Array.from(conversationMap.values()).map(async (convo) => {
+        const unreadCount = await prisma.directMessage.count({
+          where: {
+            senderId: convo.userId,
+            recipientId: user.id,
+            isRead: false,
+          },
+        });
+        return { ...convo, unreadCount };
+      })
+    );
 
     return NextResponse.json({ conversations });
   } catch (error) {
