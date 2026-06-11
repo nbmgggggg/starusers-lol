@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  username      String   @unique
+  email         String   @unique
+  passwordHash  String
+
+  avatar        String?
+  banner        String?
+  bio           String?
+
+  starBoost     Boolean  @default(false)
+
+  createdAt     DateTime @default(now())
+
+  messages      Message[]
+  memberships   ServerMember[]
+  ownedServers  Server[]
+  friendsWith   User[] @relation("Friends")
+  friendsOf     User[] @relation("Friends")
+}
+
+model Server {
+  id            String @id @default(cuid())
+  name          String
+  description   String?
+  icon          String?
+
+  ownerId       String
+  owner         User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  channels      Channel[]
+  members       ServerMember[]
+
+  boostLevel    Int @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+model Channel {
+  id            String @id @default(cuid())
+  name          String
+  description   String?
+  type          String @default("text") // "text" or "voice"
+  position      Int @default(0)
+
+  serverId      String
+  server        Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  messages      Message[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([serverId])
+}
+
+model Message {
+  id            String @id @default(cuid())
+  content       String
+
+  authorId      String
+  author        User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  channelId     String
+  channel       Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([channelId])
+}
+
+model ServerMember {
+  id            String @id @default(cuid())
+
+  userId        String
+  serverId      String
+
+  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  server        Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  role          String @default("member") // "owner", "moderator", "member"
+  joinedAt      DateTime @default(now())
+
+  @@unique([userId, serverId])
+  @@index([serverId])
+}
